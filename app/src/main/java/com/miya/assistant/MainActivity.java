@@ -9,16 +9,10 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 import android.content.Intent;
 import android.net.Uri;
 import android.webkit.DownloadListener;
-import java.io.File;
-import java.io.FileOutputStream;
-import android.os.Environment;
-import android.content.ContentValues;
-import android.provider.MediaStore;
 import android.os.Build;
 
 public class MainActivity extends Activity {
@@ -29,46 +23,70 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Edge-to-edge immersive
-        getWindow().setDecorFitsSystemWindows(false);
-        hideSystemUI();
-
-        setContentView(R.layout.activity_main);
+        try {
+            setContentView(R.layout.activity_main);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
 
         webView = findViewById(R.id.webview);
-        WebSettings settings = webView.getSettings();
+        if (webView == null) {
+            Toast.makeText(this, "WebView init failed", Toast.LENGTH_LONG).show();
+            return;
+        }
 
-        // Enable all web features
+        try {
+            setupWebView();
+            setupFullscreen();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        webView.loadUrl("https://jy1963.github.io/miya-assistant/");
+    }
+
+    private void setupWebView() {
+        WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         settings.setUserAgentString(settings.getUserAgentString() + " MiyaApp/1.0");
         settings.setMediaPlaybackRequiresUserGesture(false);
-
-        // IndexedDB support
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // Android 10+ 不推荐 file access
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+        }
+
+        // Mixed content: 仅在低版本允许
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        } else {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        }
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Keep navigation within the app
                 if (url.contains("jy1963.github.io")) {
                     return false;
                 }
-                // Open external links in browser
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                startActivity(intent);
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 return true;
             }
         });
 
         webView.setWebChromeClient(new WebChromeClient());
 
-        // Handle downloads (JSON export)
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent,
@@ -82,19 +100,27 @@ public class MainActivity extends Activity {
                 }
             }
         });
-
-        // Load the app
-        webView.loadUrl("https://jy1963.github.io/miya-assistant/");
     }
 
-    private void hideSystemUI() {
+    private void setupFullscreen() {
+        try {
+            getWindow().setDecorFitsSystemWindows(false);
+        } catch (Exception e) {
+            // 低版本兼容
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().getInsetsController().hide(
-                WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars()
-            );
-            getWindow().getInsetsController().setSystemBarsBehavior(
-                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            );
+            try {
+                WindowInsetsController controller = getWindow().getInsetsController();
+                if (controller != null) {
+                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                    controller.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    );
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         } else {
             getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -109,7 +135,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
+        if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
