@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Miya" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0f0f1a</item>
+        <item name="android:statusBarColor">#0f0f1a</item>
+        <item name="android:navigationBarColor">#0f0f1a</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
